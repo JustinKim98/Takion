@@ -22,9 +22,9 @@ template <typename T>
 void TestMultiply(Compute::Device device)
 {
     const auto batchSize = 2;
-    const auto numRow = 19;
-    const auto numCol = 11;
-    const auto numMiddle = 75;
+    const std::size_t numRow = 19;
+    const std::size_t numCol = 11;
+    const std::size_t numMiddle = 75;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -50,6 +50,13 @@ void TestMultiply(Compute::Device device)
         onesInitializer.Initialize(A);
         onesInitializer.Initialize(B);
     }
+    //
+    // for (std::size_t i = 0; i < B.BatchSize * B.ElementSize(); ++i)
+    // {
+    //     std::cout << B.Data[i] << std::endl;
+    // }
+    //
+    // std::cout << "ByteSize : " << sizeof(T) << std::endl;
 
     const auto t1 = std::chrono::system_clock::now();
     Compute::Multiply(A, B, result);
@@ -82,9 +89,9 @@ template <typename T>
 void TestBroadcastMultiply1(Compute::Device device)
 {
     const auto batchSize = 2;
-    const auto numRow = 169;
-    const auto numCol = 181;
-    const auto numMiddle = 75;
+    const std::size_t numRow = 169;
+    const std::size_t numCol = 181;
+    const std::size_t numMiddle = 75;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -143,9 +150,9 @@ template <typename T>
 void TestBroadcastMultiply2(Compute::Device device)
 {
     const auto batchSize = 2;
-    const auto numRow = 169;
-    const auto numCol = 181;
-    const auto numMiddle = 75;
+    const std::size_t numRow = 169;
+    const std::size_t numCol = 181;
+    const std::size_t numMiddle = 75;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -204,8 +211,8 @@ template <typename T>
 void TestTranspose(Compute::Device device)
 {
     const auto batchSize = 2;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -248,8 +255,8 @@ template <typename T>
 void TestShrink(Compute::Device device)
 {
     const auto batchSize = 100;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
     Compute::Zeros<T> zeroInitializer;
 
     Shape shapeIn({ 10, numRow, numCol });
@@ -303,8 +310,8 @@ template <typename T>
 void TestAdd(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -362,8 +369,8 @@ template <typename T>
 void TestBroadcastAdd1(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -417,8 +424,8 @@ template <typename T>
 void TestBroadcastAdd2(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -472,8 +479,8 @@ template <typename T>
 void TestSub(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -527,8 +534,8 @@ template <typename T>
 void TestBroadcastSub1(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -582,8 +589,8 @@ template <typename T>
 void TestBroadcastSub2(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -637,8 +644,8 @@ template <typename T>
 void TestDot(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -692,8 +699,8 @@ template <typename T>
 void TestBroadcastDot1(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 
@@ -747,8 +754,8 @@ template <typename T>
 void TestBroadcastDot2(Compute::Device device)
 {
     const auto batchSize = 3;
-    const auto numRow = 120;
-    const auto numCol = 130;
+    const std::size_t numRow = 120;
+    const std::size_t numCol = 130;
 
     Compute::Zeros<T> zeroInitializer;
 

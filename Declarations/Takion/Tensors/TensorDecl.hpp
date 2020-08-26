@@ -32,10 +32,10 @@ public:
     ~Tensor();
 
     Tensor(const Tensor<T>& tensor);
-    Tensor(Tensor<T>&& tensor) noexcept;
+    Tensor(Tensor<T>&& tensor) noexcept = delete;
     /// move assignment operator
     Tensor<T>& operator=(const Tensor<T>& tensor);
-    Tensor<T>& operator=(Tensor<T>&& tensor) noexcept;
+    Tensor<T>& operator=(Tensor<T>&& tensor) noexcept = delete;
 
     void SetData(const std::vector<T>& data);
 
@@ -92,7 +92,7 @@ public:
 private:
     std::size_t m_elementSize = 0;
     std::size_t m_columnElementSize = 0;
-    std::atomic<bool> m_hasOwnership = false;
+    std::atomic_bool m_hasOwnership = false;
 
     std::size_t m_getElementSize() const;
 
