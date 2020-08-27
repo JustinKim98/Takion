@@ -9,6 +9,7 @@
 
 #include <Takion/Utils/SharedPtr.hpp>
 #include <unordered_map>
+#include <string>
 
 namespace Takion
 {
