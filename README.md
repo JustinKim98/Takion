@@ -19,9 +19,7 @@ You can contact me via e-mail (jwkim98@kaist.ac.kr). I am always happy to answer
 
 
 
-<h4> How to run unit tests </h4>
-
----
+## How to run unit tests
 
 After browsing into cloned repository directory,
 
