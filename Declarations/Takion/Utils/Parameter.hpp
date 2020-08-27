@@ -8,6 +8,7 @@
 #define CUBBYDNN_PARAMETER_HPP
 
 #include <unordered_map>
+#include <string>
 
 namespace Takion
 {
