@@ -17,6 +17,40 @@ Takion is C++17 template based implementation of deep learning. It is suitable f
 
 You can contact me via e-mail (jwkim98@kaist.ac.kr). I am always happy to answer questions or help with any issues you might have, and please be sure to share any additional work or your creations with me, I love seeing what other people are making.
 
+
+
+<h4> How to run unit tests </h4>
+
+---
+
+After browsing into cloned repository directory,
+
+Change the value of trainFilePath and validationFilePath to the file path that you saved your 
+
+mnist_train.csv and mnist_test.csv file
+
+from 
+
+Tests/UnitTests/GraphTest/SimpleGraphTest.cpp
+
+line 308~310 (for linux and mac)
+
+lime 301~306 (for windows)
+
+Sample dataset can be downloaded from (https://www.kaggle.com/oddrationale/mnist-in-csv)
+
+__Linux__
+
+```shell
+git submodule init
+git submodule update
+cmake .
+make -j$(nproc)
+./bin/UnitTests
+```
+
+
+
 ## License
 
 <img align="right" src="http://opensource.org/trademarks/opensource/OSI-Approved-License-100x137.png">
