@@ -9,16 +9,23 @@ RUN apt-get update && apt-get install -y \
 
 COPY . /app
 
-WORKDIR /app/build
+WORKDIR /app
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y git
-RUN git submodule update  --init
+RUN rm -rf Libraries && \
+    mkdir Libraries
+RUN rm CMakeCache.txt && \
+    rm -rf .git/modules && \
+    rm -rf build && \
+    git submodule init && \
+    git submodule update
 RUN echo y | apt install software-properties-common && \
     echo y | add-apt-repository ppa:ubuntu-toolchain-r/test && \
     echo y | apt install gcc-9 g++-9 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
-RUN cmake .. && \
+RUN cmake . && \
     make  && \
-    make install
+    make install && \
+    ./bin/UnitTests
