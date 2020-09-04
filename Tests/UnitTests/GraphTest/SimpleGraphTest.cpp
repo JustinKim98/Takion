@@ -306,9 +306,9 @@ void MnistTrainTest2()
         "bundle_archive\\mnist_test.csv";
 #else
     std::filesystem::path trainFilePath =
-        "/mnt/c/Users/user/Desktop/Files/projects/Takion/Mnist/27352_34877_bundle_archive/mnist_train.csv";
+        "./Mnist/27352_34877_bundle_archive/mnist_train.csv";
     std::filesystem::path validationFilePath =
-        "/mnt/c/Users/user/Desktop/Files/projects/Takion/Mnist/27352_34877_bundle_archive/mnist_test.csv";
+        "./Mnist/27352_34877_bundle_archive/mnist_test.csv";
 #endif
 
     std::cout << "Train filepath : " << trainFilePath << std::endl;

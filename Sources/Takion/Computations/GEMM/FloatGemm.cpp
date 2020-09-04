@@ -147,7 +147,6 @@ void MultiplyWithBroadcastCpu(const Span<float> inputA,
 void ShrinkCpu(const Span<float> input, Span<float> output,
                std::size_t size, std::size_t batchSize)
 {
-    //#pragma omp parallel for schedule(static) default(shared)
     for (long batchIdx = 0; static_cast<std::size_t>(batchIdx) < batchSize;
          batchIdx++)
     {
@@ -160,7 +159,6 @@ void ShrinkCpu(const Span<float> input, Span<float> output,
                 _mm256_load_ps(static_cast<float const*>(&output[i]));
             const auto sum = _mm256_add_ps(vecA, vecB);
 
-            //#pragma omp critical
             {
                 _mm256_store_ps(static_cast<float*>(&output[i]), sum);
             }

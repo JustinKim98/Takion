@@ -63,7 +63,7 @@ DenseUnit<T> DenseUnit<T>::CreateUnit(
     const auto biasShape = unitMetaData.InternalVariableShape("bias");
     const auto inputShape = unitMetaData.GetInputShape("input");
     const auto outputShape = unitMetaData.GetOutputShape();
-    const auto weightTransposeShape = weightShape.GetTransposedShape();
+    const auto weightTransposeShape = weightShape.GetTranspose();
 
     DenseUnit<T>::m_checkShape(inputShape, outputShape, weightShape, biasShape,
                                unitId.UnitName);
@@ -105,7 +105,7 @@ DenseUnit<T> DenseUnit<T>::CreateUnit(
                     unitMetaData.Device);
 
     Tensor<T> previousInputTranspose(
-        inputShape.GetTransposedShape(),
+        inputShape.GetTranspose(),
         unitMetaData.BatchSize(),
         unitMetaData.Device);
 
@@ -188,15 +188,6 @@ void DenseUnit<T>::Backward()
 
     for (auto& [unitId, gradient] : BackwardInputMap)
     {
-#ifdef DEBUG
-        const auto gradientSize =
-            gradient.TensorShape.Size() * gradient.BatchSize;
-
-        for (std::size_t i = 0; i < gradientSize; ++i)
-        {
-            std::cout << "gradient : " << gradient.At(i) << std::endl;
-        }
-#endif
         Compute::Add(gradient, delta);
     }
 

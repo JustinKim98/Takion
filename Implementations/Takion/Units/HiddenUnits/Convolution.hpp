@@ -11,20 +11,20 @@
 namespace Takion::Graph
 {
 template <typename T>
-Convolution2D<T>::Convolution2D(const UnitId& unitId,
-                                const UnitId& sourceUnitId,
-                                Tensor<T> forwardInput,
-                                std::unordered_map<UnitId, Tensor<T>>
-                                backwardInputMap, Tensor<T> forwardOutput,
-                                Tensor<T> backwardOutput,
-                                std::unordered_map<std::string, Tensor<T>>
-                                internalTensorMap,
-                                std::unordered_map<std::string, Tensor<T>>
-                                trainableTensorMap,
-                                std::size_t dilation, std::size_t stride,
-                                std::size_t padding,
-                                std::unique_ptr<Compute::Optimizer<T>>
-                                optimizer, std::size_t batchSize)
+Conv2DUnit<T>::Conv2DUnit(const UnitId& unitId,
+                          const UnitId& sourceUnitId,
+                          Tensor<T> forwardInput,
+                          std::unordered_map<UnitId, Tensor<T>>
+                          backwardInputMap, Tensor<T> forwardOutput,
+                          Tensor<T> backwardOutput,
+                          std::unordered_map<std::string, Tensor<T>>
+                          internalTensorMap,
+                          std::unordered_map<std::string, Tensor<T>>
+                          trainableTensorMap,
+                          std::size_t dilation, std::size_t stride,
+                          std::size_t padding,
+                          std::unique_ptr<Compute::Optimizer<T>>
+                          optimizer, std::size_t batchSize)
     : ComputableUnit<T>(unitId, { { sourceUnitId, std::move(forwardInput) } },
                         std::move(backwardInputMap), forwardOutput,
                         { { sourceUnitId, std::move(backwardOutput) } },
@@ -35,10 +35,14 @@ Convolution2D<T>::Convolution2D(const UnitId& unitId,
     Tensor<T>& filter = TrainableTensorMap["filter"];
     Tensor<T>& filterMatrix = TrainableTensorMap["filterMatrix"];
     m_filterToFilterMatrix(filter, filterMatrix);
+
+    Tensor<T>& forwardInputTensor = ForwardInputMap[m_sourceUnitId];
+    Tensor<T>& paddedForwardInput = InternalTensorMap["paddedForwardInput"];
+    m_padForwardInput(forwardInputTensor, paddedForwardInput);
 }
 
 template <typename T>
-Convolution2D<T> Convolution2D<T>::CreateUnit(
+Conv2DUnit<T> Conv2DUnit<T>::CreateUnit(
     const FrontEnd::UnitMetaData<T>& unitMetaData,
     std::unique_ptr<Compute::Optimizer<T>> optimizer)
 {
@@ -48,7 +52,7 @@ Convolution2D<T> Convolution2D<T>::CreateUnit(
     const auto filterShape = unitMetaData.InternalVariableShape("filter");
     const auto biasShape = unitMetaData.InternalVariableShape("bias");
     const auto inputShape = unitMetaData.GetInputShape("input");
-    const auto outputShape = unitMetaData.GetOutputShape();
+    const auto forwardOutputShape = unitMetaData.GetOutputShape();
     const std::size_t dilation =
         unitMetaData.Params.GetIntegerParam("dilation");
     const auto stride = unitMetaData.Params.GetIntegerParam("stride");
@@ -67,9 +71,9 @@ Convolution2D<T> Convolution2D<T>::CreateUnit(
     const auto inputNumChannel = filterShape[1];
     const auto outputNumChannel = filterShape[0];
 
-    const auto outputMapSize = outputShape[1] * outputShape[2];
+    const auto outputMapSize = forwardOutputShape[1] * forwardOutputShape[2];
 
-    Shape filterForwardMatrixShape{
+    Shape filterMatrixShape{
         filterNumCol * filterNumRow * inputNumChannel,
         outputNumChannel };
 
@@ -77,84 +81,158 @@ Convolution2D<T> Convolution2D<T>::CreateUnit(
                                    filterNumCol * filterNumRow *
                                    inputNumChannel };
 
-    Shape filterBackwardMatrixShape =
-        filterForwardMatrixShape.GetTransposedShape();
+    Shape backwardOutputMatrixShape = inputForwardMatrixShape;
+    Shape forwardOutputMatrixShape{ outputMapSize, outputNumChannel };
 
-    Shape outputBackwardMatrixShape = inputForwardMatrixShape;
-    Shape outputForwardMatrixShape{ outputMapSize, outputNumChannel };
-
-    Shape biasMatrixShape = outputForwardMatrixShape;
+    Shape biasMatrixShape = forwardOutputMatrixShape;
 
     Shape paddedInputShape = inputShape;
     paddedInputShape.SetNumCols(inputShape.NumCol() + 2 * padSizeX);
     paddedInputShape.SetNumRows(inputShape.NumRow() + 2 * padSizeY);
 
-    Tensor<T> forwardInputTensor(inputShape, batchSize, device);
+    Tensor<T> forwardInput(inputShape, batchSize, device);
 
-    Tensor<T> paddedForwardInputTensor(paddedInputShape, batchSize, device);
+    Tensor<T> paddedForwardInput(paddedInputShape, batchSize, device);
 
     std::unordered_map<UnitId, Tensor<T>> backwardInputMap;
 
     for (const auto& outputUnitId : unitMetaData.OutputUnitVector())
     {
-        Tensor<T> tensor(unitMetaData.GetOutputShape(),
-                         unitMetaData.BatchSize(), unitMetaData.Device);
+        Tensor<T> tensor(forwardOutputShape, batchSize, device);
         backwardInputMap[outputUnitId] = tensor;
     }
 
-    Tensor<T> forwardOutputTensor(outputShape, batchSize, device);
-    Tensor<T> backwardOutputTensor(inputShape, batchSize, device);
+    Tensor<T> forwardOutput(forwardOutputShape, batchSize, device);
+    Tensor<T> backwardOutput(inputShape, batchSize, device);
 
     Tensor<T> forwardInputMatrix(inputForwardMatrixShape, batchSize, device);
-    Tensor<T> backwardOutputMatrix(outputBackwardMatrixShape, batchSize,
+    Tensor<T> backwardOutputMatrix(backwardOutputMatrixShape, batchSize,
                                    device);
 
-    Tensor<T> forwardOutputMatrix(outputForwardMatrixShape, batchSize);
+    Tensor<T> forwardOutputMatrix(forwardOutputMatrixShape, batchSize);
 
     Tensor<T> filter(filterShape, device);
 
-    Tensor<T> filterForwardMatrix(filterForwardMatrixShape, batchSize, device);
-    Tensor<T> filterBackwardMatrix(filterBackwardMatrixShape, batchSize,
-                                   device);
+    Tensor<T> filterMatrix(filterMatrixShape, device);
+    Tensor<T> filterUpdateMatrix(filterMatrixShape, batchSize, device);
+    Tensor<T> filterUpdateMatrixMean(filterMatrixShape, device);
+    Tensor<T> transposedFilterMatrix(filterMatrixShape.GetTranspose(),
+                                     batchSize,
+                                     device);
 
     Tensor<T> bias(biasShape, device);
-    Tensor<T> biasMatrix(biasMatrixShape, batchSize, device);
+    Tensor<T> biasMatrix(biasMatrixShape, device);
+    Tensor<T> biasUpdateMatrixMean(biasMatrixShape, device);
 
-    filterInitializer->Initialize(filter);
-    biasInitializer->Initialize(bias);
+    Tensor<T> delta(forwardOutputShape, batchSize, device);
+    Tensor<T> deltaMatrix(forwardOutputMatrixShape, batchSize, device);
+
+    filterInitializer->Initialize(filterMatrix);
+    biasInitializer->Initialize(biasMatrix);
 
     std::unordered_map<std::string, Tensor<T>> trainableTensorMap = {
-        { "filterForwardMatrix", filterForwardMatrix },
-        { "filterBackwardMatrix", filterBackwardMatrix },
         { "filter", filter },
         { "bias", bias },
+        { "filterMatrix", filterMatrix },
         { "biasMatrix", biasMatrix }
     };
 
     std::unordered_map<std::string, Tensor<T>> internalTensorMap = {
-        { "paddedForwardInputTensor", paddedForwardInputTensor },
-        { "inputForwardMatrix", forwardInputMatrix },
-        { "outputForwardMatrix", forwardOutputMatrix },
-        { "outputBackwardMatrix", backwardOutputMatrix }
+        { "paddedForwardInput", paddedForwardInput },
+        { "forwardInputMatrix", forwardInputMatrix },
+        { "forwardOutputMatrix", forwardOutputMatrix },
+        { "backwardOutputMatrix", backwardOutputMatrix },
+        { "delta", delta },
+        { "deltaMatrix", deltaMatrix },
+        { "transposedFilterMatrix", transposedFilterMatrix },
+
     };
 
-    auto conv2DUnit = Convolution2D<T>(
-        unitId, sourceUnitId, forwardInputTensor, backwardInputMap,
-        forwardOutputTensor, backwardOutputTensor, internalTensorMap,
+    auto conv2DUnit = Conv2DUnit<T>(
+        unitId, sourceUnitId, forwardInput, backwardInputMap,
+        forwardOutput, backwardOutput, internalTensorMap,
         trainableTensorMap, dilation, stride, padSizeX, optimizer, batchSize);
 
     return conv2DUnit;
 }
 
 template <typename T>
-void Convolution2D<T>::m_checkShape(Shape input, Shape output, Shape filter,
-                                    Shape bias, std::size_t dilationRow,
-                                    std::size_t dilationCol,
-                                    std::size_t strideRow,
-                                    std::size_t strideCol,
-                                    std::size_t padSizeRow,
-                                    std::size_t padSizeCol,
-                                    std::string unitName)
+void Conv2DUnit<T>::Forward()
+{
+    const Tensor<T>& inputForward = ForwardInputMap[m_sourceUnitId];
+    Tensor<T>& inputForwardMatrix = InternalTensorMap["forwardInputMatrix"];
+    m_inputToInputMatrix(inputForward, inputForwardMatrix);
+    Tensor<T>& filterMatrix = TrainableTensorMap["filterMatrix"];
+    const Tensor<T>& biasMatrix = TrainableTensorMap["biasMatrix"];
+    Tensor<T>& outputForwardMatrix = InternalTensorMap["forwardOutputMatrix"];
+
+    Compute::Multiply(filterMatrix, inputForwardMatrix, outputForwardMatrix);
+    Compute::Add(outputForwardMatrix, biasMatrix, outputForwardMatrix);
+}
+
+template <typename T>
+void Conv2DUnit<T>::AsyncForward(std::promise<bool> promise)
+{
+    const Tensor<T>& inputForward = ForwardInputMap[m_sourceUnitId];
+    Tensor<T>& inputForwardMatrix = InternalTensorMap["forwardInputMatrix"];
+    m_inputToInputMatrix(inputForward, inputForwardMatrix);
+    Tensor<T>& filterMatrix = TrainableTensorMap["filterMatrix"];
+    const Tensor<T>& biasMatrix = TrainableTensorMap["biasMatrix"];
+    Tensor<T>& outputForwardMatrix = InternalTensorMap["forwardOutputMatrix"];
+
+    Compute::Multiply(filterMatrix, inputForwardMatrix, outputForwardMatrix);
+    Compute::Add(outputForwardMatrix, biasMatrix, outputForwardMatrix);
+    promise.set_value(true);
+}
+
+template <typename T>
+void Conv2DUnit<T>::Backward()
+{
+    Tensor<T>& delta = InternalTensorMap["delta"];
+    Tensor<T>& transposedFilterMatrix =
+        TrainableTensorMap["transposedFilterMatrix"];
+    Tensor<T>& filterMatrix = TrainableTensorMap["filterMatrix"];
+    Tensor<T>& biasMatrix = TrainableTensorMap["biasMatrix"];
+    const Tensor<T>& forwardInputMatrix =
+        InternalTensorMap["forwardInputMatrix"];
+    Tensor<T>& backwardOutputMatrix = InternalTensorMap["backwardOutputMatrix"];
+    Tensor<T>& backwardOutput = BackwardOutputMap[m_sourceUnitId];
+    Tensor<T>& filterUpdateMatrix = InternalTensorMap["filterUpdateMatrix"];
+    Tensor<T>& filterUpdateMatrixMean =
+        InternalTensorMap["filterUpdateMatrixMean"];
+    Tensor<T>& biasUpdateMatrixMean = InternalTensorMap["biasUpdateMatrixMean"];
+
+    const Compute::Zeros<T> zeroInitializer;
+    zeroInitializer.Initialize(delta);
+
+    for (auto& [unitId, gradient] : BackwardInputMap)
+    {
+        Compute::Add(gradient, delta);
+    }
+    Compute::ScalarDiv(delta, static_cast<T>(BackwardInputMap.size()));
+    Compute::Transpose(filterMatrix, transposedFilterMatrix);
+    Compute::Multiply(transposedFilterMatrix, delta, backwardOutputMatrix);
+
+    m_inputMatrixToInput(backwardOutputMatrix, backwardOutput);
+
+    Compute::Multiply(filterMatrix, forwardInputMatrix, filterUpdateMatrix);
+    Compute::Shrink(filterUpdateMatrix, filterUpdateMatrixMean);
+    Compute::Shrink(delta, biasUpdateMatrixMean);
+
+    m_optimizer->Optimize(filterMatrix, filterUpdateMatrixMean);
+    m_optimizer->Optimize(biasMatrix, biasUpdateMatrixMean);
+}
+
+
+template <typename T>
+void Conv2DUnit<T>::m_checkShape(Shape input, Shape output, Shape filter,
+                                 Shape bias, std::size_t dilationRow,
+                                 std::size_t dilationCol,
+                                 std::size_t strideRow,
+                                 std::size_t strideCol,
+                                 std::size_t padSizeRow,
+                                 std::size_t padSizeCol,
+                                 std::string unitName)
 {
     if (input.Dim() != 3)
     {
@@ -259,7 +337,7 @@ void Convolution2D<T>::m_checkShape(Shape input, Shape output, Shape filter,
 
 
 template <typename T>
-void Convolution2D<T>::m_inputToInputMatrix(
+void Conv2DUnit<T>::m_inputToInputMatrix(
     const Tensor<T>& input, Tensor<T>& inputMatrix, Shape filterShape,
     Shape outputShape, std::size_t dilation, std::size_t rowStride,
     std::size_t colStride)
@@ -305,13 +383,13 @@ void Convolution2D<T>::m_inputToInputMatrix(
 }
 
 template <typename T>
-void Convolution2D<T>::m_inputMatrixToInput(const Tensor<T>& inputMatrix,
-                                            Tensor<T>& input,
-                                            Shape filterShape,
-                                            Shape outputShape,
-                                            std::size_t dilation,
-                                            std::size_t rowStride,
-                                            std::size_t colStride)
+void Conv2DUnit<T>::m_inputMatrixToInput(const Tensor<T>& inputMatrix,
+                                         Tensor<T>& input,
+                                         Shape filterShape,
+                                         Shape outputShape,
+                                         std::size_t dilation,
+                                         std::size_t rowStride,
+                                         std::size_t colStride)
 {
     const auto batchSize = input.BatchSize;
     const auto totalInputSize = input.TensorShape.Size();
@@ -357,8 +435,8 @@ void Convolution2D<T>::m_inputMatrixToInput(const Tensor<T>& inputMatrix,
 }
 
 template <typename T>
-void Convolution2D<T>::m_outputToOutputMatrix(const Tensor<T>& output,
-                                              Tensor<T>& outputMatrix)
+void Conv2DUnit<T>::m_outputToOutputMatrix(const Tensor<T>& output,
+                                           Tensor<T>& outputMatrix)
 {
     const auto batchSize = output.BatchSize;
     const auto outputSize = output.TensorShape.Size();
@@ -393,8 +471,8 @@ void Convolution2D<T>::m_outputToOutputMatrix(const Tensor<T>& output,
 }
 
 template <typename T>
-void Convolution2D<T>::m_outputMatrixToOutput(const Tensor<T>& outputMatrix,
-                                              Tensor<T>& output)
+void Conv2DUnit<T>::m_outputMatrixToOutput(const Tensor<T>& outputMatrix,
+                                           Tensor<T>& output)
 {
     const auto batchSize = output.BatchSize;
     const auto outputSize = output.TensorShape.Size();
@@ -430,8 +508,8 @@ void Convolution2D<T>::m_outputMatrixToOutput(const Tensor<T>& outputMatrix,
 
 
 template <typename T>
-void Convolution2D<T>::m_filterToFilterMatrix(const Tensor<T>& filter,
-                                              Tensor<T>& filterMatrix)
+void Conv2DUnit<T>::m_filterToFilterMatrix(const Tensor<T>& filter,
+                                           Tensor<T>& filterMatrix)
 {
     const auto batchSize = filter.BatchSize;
     const auto filterMatrixShape = filterMatrix.TensorShape;
@@ -465,8 +543,8 @@ void Convolution2D<T>::m_filterToFilterMatrix(const Tensor<T>& filter,
 }
 
 template <typename T>
-void Convolution2D<T>::m_filterMatrixToFilter(const Tensor<T>& filterMatrix,
-                                              Tensor<T>& filter)
+void Conv2DUnit<T>::m_filterMatrixToFilter(const Tensor<T>& filterMatrix,
+                                           Tensor<T>& filter)
 {
     const auto batchSize = filter.BatchSize;
     const auto filterMatrixShape = filterMatrix.TensorShape;
@@ -499,8 +577,8 @@ void Convolution2D<T>::m_filterMatrixToFilter(const Tensor<T>& filterMatrix,
 }
 
 template <typename T>
-void Convolution2D<T>::m_biasToBiasMatrix(const Tensor<T>& bias,
-                                          Tensor<T>& biasMatrix)
+void Conv2DUnit<T>::m_biasToBiasMatrix(const Tensor<T>& bias,
+                                       Tensor<T>& biasMatrix)
 {
     const auto batchSize = biasMatrix.BatchSize;
     const auto biasMatrixShape = biasMatrix.TensorShape;
@@ -524,8 +602,8 @@ void Convolution2D<T>::m_biasToBiasMatrix(const Tensor<T>& bias,
 }
 
 template <typename T>
-void Convolution2D<T>::m_biasMatrixToBias(const Tensor<T>& biasMatrix,
-                                          Tensor<T>& bias)
+void Conv2DUnit<T>::m_biasMatrixToBias(const Tensor<T>& biasMatrix,
+                                       Tensor<T>& bias)
 {
     const auto batchSize = biasMatrix.BatchSize;
     const auto biasMatrixShape = biasMatrix.TensorShape;

@@ -14,7 +14,7 @@
 namespace Takion::Graph
 {
 template <typename T>
-class Convolution2D : public ComputableUnit<T>, public TrainableUnit<T>
+class Conv2DUnit : public ComputableUnit<T>, public TrainableUnit<T>
 {
 public:
     using ComputableUnit<T>::ForwardInputMap;
@@ -25,7 +25,7 @@ public:
     using ComputableUnit<T>::InternalTensorMap;
     using TrainableUnit<T>::m_optimizer;
 
-    Convolution2D(const UnitId& unitId, const UnitId& sourceUnitId,
+    Conv2DUnit(const UnitId& unitId, const UnitId& sourceUnitId,
                   Tensor<T> forwardInput,
                   std::unordered_map<UnitId, Tensor<T>> backwardInputMap,
                   Tensor<T> forwardOutput, Tensor<T> backwardOutput,
@@ -35,14 +35,14 @@ public:
                   std::unique_ptr<Compute::Optimizer<T>> optimizer,
                   std::size_t batchSize);
 
-    ~Convolution2D() = default;
+    ~Conv2DUnit() = default;
 
-    Convolution2D(const Convolution2D<T>& convolution2d) = delete;
-    Convolution2D(Convolution2D<T>&& convolution2d) noexcept;
-    Convolution2D& operator=(const Convolution2D<T>& convolution2D) = delete;
-    Convolution2D& operator=(Convolution2D<T>&& convolutioin2d) noexcept;
+    Conv2DUnit(const Conv2DUnit<T>& convolution2d) = delete;
+    Conv2DUnit(Conv2DUnit<T>&& convolution2d) noexcept;
+    Conv2DUnit& operator=(const Conv2DUnit<T>& convolution2D) = delete;
+    Conv2DUnit& operator=(Conv2DUnit<T>&& convolutioin2d) noexcept;
 
-    static Convolution2D<T> CreateUnit(
+    static Conv2DUnit<T> CreateUnit(
         const FrontEnd::UnitMetaData<T>& unitMetaData,
         std::unique_ptr<Compute::Optimizer<T>> optimizer);
 
@@ -57,10 +57,12 @@ public:
     void ChangeBatchSize(std::size_t batchSize) override;
 
 private:
-    void m_checkShape(Shape input, Shape output, Shape filter, Shape bias,
-                      std::size_t dilationRow, std::size_t dilationCol,
-                      std::size_t strideRow, std::size_t strideCol, std::size_t padSizeRow, std::size_t padSizeCol, std
-                      ::string unitName);
+    static void m_checkShape(Shape input, Shape output, Shape filter,
+                             Shape bias,
+                             std::size_t dilationRow, std::size_t dilationCol,
+                             std::size_t strideRow, std::size_t strideCol,
+                             std::size_t padSizeRow, std::size_t padSizeCol,
+                             std::string unitName);
 
     //! Assumes input Tensor is already padded
     void m_inputToInputMatrix(const Tensor<T>& input,
@@ -89,6 +91,9 @@ private:
     void m_biasToBiasMatrix(const Tensor<T>& bias, Tensor<T>& biasMatrix);
 
     void m_biasMatrixToBias(const Tensor<T>& biasMatrix, Tensor<T>& bias);
+
+    void m_padForwardInput(const Tensor<T>& forwardInput,
+                           Tensor<T>& paddedForwardInput);
 
     UnitId m_sourceUnitId;
 };
