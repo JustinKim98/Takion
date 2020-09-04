@@ -112,7 +112,7 @@ public:
 
     void Transpose();
 
-    [[nodiscard]] Shape GetTransposedShape() const;
+    [[nodiscard]] Shape GetTranspose() const;
 
 private:
     std::vector<std::size_t> m_shapeVector;

@@ -159,7 +159,7 @@ void Shape::Transpose()
     m_shapeVector.at(1) = temp;
 }
 
-Shape Shape::GetTransposedShape() const
+Shape Shape::GetTranspose() const
 {
     Shape shape(m_shapeVector);
     shape.SetNumRows(NumCol());
