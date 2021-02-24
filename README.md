@@ -12,6 +12,8 @@ Takion is C++17 template based implementation of deep learning. It is suitable f
 - Portable & header-only
 - Easy to integrate with real applications
 - Simply implemented
+- Supports AVX/AVX2 based vector extensions with OpenMP
+- Automatically finds concurrency in graph structure
 
 ## Contact
 
@@ -19,23 +21,29 @@ You can contact me via e-mail (jwkim98@kaist.ac.kr). I am always happy to answer
 
 
 
+<h4> Example</h4>
+
+Here is the example code for building graphs
+
+The graph interface is meant to be user friendly and interactive
+
+<img src="https://github.com/jwkim98/Takion/blob/master/Medias/example1.png" width=512 dimension=512 />
+
 ## How to run unit tests
 
 After browsing into cloned repository directory,
 
 Change the value of trainFilePath and validationFilePath to the file path that you saved your 
 
-mnist_train.csv and mnist_test.csv file
-
-from 
+mnist_train.csv and mnist_test.csv file from 
 
 Tests/UnitTests/GraphTest/SimpleGraphTest.cpp
 
-line 308~310 (for linux and mac)
-
-lime 301~306 (for windows)
+<img src="https://github.com/jwkim98/Takion/blob/master/Medias/example2.png" width=512 dimension=512 />
 
 Sample dataset can be downloaded from (https://www.kaggle.com/oddrationale/mnist-in-csv)
+
+Or you can make build model using the interface
 
 __Linux__
 
